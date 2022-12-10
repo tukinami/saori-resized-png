@@ -6,7 +6,6 @@ use image::io::Reader as ImageReader;
 use crate::error::ResizedPngError;
 
 pub(crate) fn get_image_type(src_path: &PathBuf) -> &'static str {
-    println!("{}", src_path.display());
     let Ok(reader) = ImageReader::open(src_path).and_then(|v| v.with_guessed_format()) else {
         return "UNKNOWN";
     };
