@@ -81,6 +81,7 @@ Argument0に、使用する機能名を指定して使用します。
 + [encoding\_rs](https://github.com/hsivonen/encoding_rs) / Henri Sivonen
 + [image](https://github.com/image-rs/image) / The image-rs Developers
 + [fast\_image\_resize](https://github.com/cykooz/fast_image_resize) / Kirill Kuzminykh
++ (テスト実行時) [tempfile](https://github.com/Stebalien/tempfile) / Steven Allen, The Rust Project Developers, Ashley Mannix, Jason White
 
 
 ## ライセンス
