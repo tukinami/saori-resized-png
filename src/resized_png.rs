@@ -169,60 +169,74 @@ mod tests {
     mod to_resized_png {
         use super::*;
 
+        use tempfile::tempdir;
+
         #[test]
         fn success_when_input_image_is_png() {
-            let test_target = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_target");
+            let out_dir = tempdir().unwrap();
 
-            let src_path = test_target.join("image/sample.png");
-            let dist_path = test_target.join("output/from_png.png");
+            let src_path =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_target/image/sample.png");
+            let dist_path = out_dir.path().join("from_png.png");
             let width_command = 50;
             let height_command = 100;
 
             to_resized_png(&src_path, &dist_path, width_command, height_command).unwrap();
 
             assert!(dist_path.exists());
+
+            out_dir.close().unwrap();
         }
 
         #[test]
         fn success_when_input_image_is_webp() {
-            let test_target = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_target");
+            let out_dir = tempdir().unwrap();
 
-            let src_path = test_target.join("image/sample.webp");
-            let dist_path = test_target.join("output/from_webp.png");
+            let src_path =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_target/image/sample.webp");
+            let dist_path = out_dir.path().join("from_webp.png");
             let width_command = -1;
             let height_command = 50;
 
             to_resized_png(&src_path, &dist_path, width_command, height_command).unwrap();
 
             assert!(dist_path.exists());
+
+            out_dir.close().unwrap();
         }
 
         #[test]
         fn success_when_input_image_is_bmp() {
-            let test_target = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_target");
+            let out_dir = tempdir().unwrap();
 
-            let src_path = test_target.join("image/sample.bmp");
-            let dist_path = test_target.join("output/from_bmp.png");
+            let src_path =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_target/image/sample.bmp");
+            let dist_path = out_dir.path().join("from_bmp.png");
             let width_command = 50;
             let height_command = -1;
 
             to_resized_png(&src_path, &dist_path, width_command, height_command).unwrap();
 
             assert!(dist_path.exists());
+
+            out_dir.close().unwrap();
         }
 
         #[test]
         fn success_when_input_image_is_jpg() {
-            let test_target = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_target");
+            let out_dir = tempdir().unwrap();
 
-            let src_path = test_target.join("image/sample.jpg");
-            let dist_path = test_target.join("output/from_jpg.png");
+            let src_path =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_target/image/sample.jpg");
+            let dist_path = out_dir.path().join("from_jpg.png");
             let width_command = 0;
             let height_command = 0;
 
             to_resized_png(&src_path, &dist_path, width_command, height_command).unwrap();
 
             assert!(dist_path.exists());
+
+            out_dir.close().unwrap();
         }
     }
 
