@@ -1,6 +1,6 @@
 [package]
 name = "saori-resized-png"
-version = "1.0.1"
+version = "1.0.2"
 authors = ["tukinami seika <10forchette@gmail.com>"]
 license = "MIT"
 readme = "README.md"
