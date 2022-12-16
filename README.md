@@ -78,9 +78,9 @@ Argument0に、使用する機能名を指定して使用します。
 いずれも敬称略。ありがとうございます。
 
 + [winapi\_rs](https://github.com/retep998/winapi-rs) / Peter Atashian
-+ [encoding\_rs](https://github.com/hsivonen/encoding_rs) / Henri Sivonen
 + [image](https://github.com/image-rs/image) / The image-rs Developers
 + [fast\_image\_resize](https://github.com/cykooz/fast_image_resize) / Kirill Kuzminykh
++ (テスト実行時) [encoding\_rs](https://github.com/hsivonen/encoding_rs) / Henri Sivonen
 + (テスト実行時) [tempfile](https://github.com/Stebalien/tempfile) / Steven Allen, The Rust Project Developers, Ashley Mannix, Jason White
 
 
@@ -90,6 +90,6 @@ MITにて配布いたします。
 
 ## 作成者
 
-月波 清火 (tukinami seika) <10forchette@gmail.com>
+月波 清火 (tukinami seika)
 
-[GitHub](https://github.com/tukinami/saori-resized-png)
+[GitHub](https://github.com/tukinami)
