@@ -292,154 +292,214 @@ impl SaoriRequest {
         }
     }
 }
-
 #[cfg(test)]
-mod test_request {
+mod tests {
     use super::*;
 
-    #[test]
-    fn test_decode_u8() {
-        let case = "EXECUTE SAORI/1.0\r\nCharset: UTF-8\r\nArgument0: わはは\r\n\r\n\0";
-        assert_eq!(
-            Ok((case.to_string(), SaoriCharset::UTF8)),
-            SaoriRequest::decode_u8(case.as_bytes())
-        );
+    mod saori_request {
+        use super::*;
 
-        let case = "EXECUTE SAORI/1.0\r\nCharset: Shift_JIS\r\nArgument0: わはは\r\n\r\n\0";
-        assert_eq!(
-            Err(SaoriRequestCharsetError::DecodeFailed),
-            SaoriRequest::decode_u8(case.as_bytes())
-        );
-    }
+        mod from_u8 {
+            use super::*;
 
-    #[test]
-    fn test_parse_version_line() {
-        let case = "GET Version SAORI/1.0\r\n\r\n\0";
-        assert_eq!(
-            Ok((SaoriVersion::V1_0, SaoriCommand::GetVersion)),
-            SaoriRequest::parse_version_line(case)
-        );
+            use encoding_rs;
 
-        let case = "EXECUTE SAORI/1.0\r\nCharset: UTF-8\r\nArgument0: わはは\r\n\r\n\0";
-        assert_eq!(
-            Ok((SaoriVersion::V1_0, SaoriCommand::Execute)),
-            SaoriRequest::parse_version_line(case)
-        );
-
-        let case = "";
-        assert_eq!(
-            Err(SaoriRequestVersionLineError::EmptyRequest),
-            SaoriRequest::parse_version_line(case)
-        );
-
-        let case = "SAORI/1.0\r\n\r\n\0";
-        assert_eq!(
-            Err(SaoriRequestVersionLineError::NoCommand),
-            SaoriRequest::parse_version_line(case)
-        );
-
-        let case = "GET Version \r\n\r\n\0";
-        assert_eq!(
-            Err(SaoriRequestVersionLineError::NoVersion),
-            SaoriRequest::parse_version_line(case)
-        );
-    }
-
-    #[test]
-    fn test_parse_security_level() {
-        let case = "SecurityLevel: Local";
-        assert_eq!(
-            Some(SaoriSecurityLevel::Local),
-            SaoriRequest::parse_security_level(case)
-        );
-
-        let case = "SecurityLevel: External";
-        assert_eq!(
-            Some(SaoriSecurityLevel::External),
-            SaoriRequest::parse_security_level(case)
-        );
-
-        let case = "Argument0: test";
-        assert_eq!(None, SaoriRequest::parse_security_level(case));
-    }
-
-    #[test]
-    fn test_parse_argument() {
-        let mut argument = Vec::new();
-
-        let case = "Argument123: わはは";
-        let result = SaoriRequest::parse_argument(case, &mut argument);
-        assert_eq!(Ok(()), result);
-        assert_eq!(Some(&String::from("わはは")), argument.get(123));
-
-        let case = "Argument124: ふふふ";
-        let result = SaoriRequest::parse_argument(case, &mut argument);
-        assert_eq!(Ok(()), result);
-        let case = "Argument1: へへへ";
-        let result = SaoriRequest::parse_argument(case, &mut argument);
-        assert_eq!(Ok(()), result);
-
-        assert_eq!(Some(&String::from("ふふふ")), argument.get(124));
-        assert_eq!(Some(&String::from("へへへ")), argument.get(1));
-        assert_eq!(Some(&String::from("わはは")), argument.get(123));
-
-        let case = "";
-        assert_eq!(Ok(()), SaoriRequest::parse_argument(case, &mut argument));
-
-        let case = "Argument 123";
-        assert_eq!(
-            Err(SaoriRequestArgumentError::InvalidSeparator),
-            SaoriRequest::parse_argument(case, &mut argument)
-        );
-
-        let case = "Argument: 123";
-        assert_eq!(
-            Err(SaoriRequestArgumentError::NoIndex),
-            SaoriRequest::parse_argument(case, &mut argument)
-        );
-    }
-
-    #[test]
-    fn test_parse_sender() {
-        let case = "Sender: materia";
-        assert_eq!(
-            Some(String::from("materia")),
-            SaoriRequest::parse_sender(case)
-        );
-
-        let case = "Argument0: 123";
-        assert_eq!(None, SaoriRequest::parse_sender(case));
-    }
-
-    #[test]
-    fn test_from_u8() {
-        // 通常
-        let case = "EXECUTE SAORI/1.0\r\n
+            #[test]
+            fn success_when_valid_request() {
+                let case = "EXECUTE SAORI/1.0\r\n
 SecurityLevel: Local\r\n
-Charset: UTF-8\r\n
-Argument0: わはは\r\n
+Charset: Shift_JIS\r\n
+Argument0: 零\r\n
 \r\n\0
 ";
-        let expect = SaoriRequest {
-            version: SaoriVersion::V1_0,
-            command: SaoriCommand::Execute,
-            security_level: Some(SaoriSecurityLevel::Local),
-            argument: vec![String::from("わはは")],
-            charset: SaoriCharset::UTF8,
-            sender: None,
-        };
-        assert_eq!(Ok(expect), SaoriRequest::from_u8(case.as_bytes()));
+                let (case_bytes, _encoding, _is_err) = encoding_rs::SHIFT_JIS.encode(case);
+                let expect = SaoriRequest {
+                    version: SaoriVersion::V1_0,
+                    command: SaoriCommand::Execute,
+                    security_level: Some(SaoriSecurityLevel::Local),
+                    argument: vec![String::from("零")],
+                    charset: SaoriCharset::ShiftJIS,
+                    sender: None,
+                };
+                assert_eq!(SaoriRequest::from_u8(&case_bytes), Ok(expect));
+            }
 
-        // 異常
-        let case = "SAORI/1.0\r\n
+            #[test]
+            fn failed_when_invalid_request() {
+                let case = "SAORI/1.0\r\n
 Argument0: 123\r\n
 \r\n\0
 ";
-        assert_eq!(
-            Err(SaoriRequestError::VersionLine(
-                SaoriRequestVersionLineError::NoCommand
-            )),
-            SaoriRequest::from_u8(case.as_bytes())
-        );
+                assert_eq!(
+                    SaoriRequest::from_u8(case.as_bytes()),
+                    Err(SaoriRequestError::VersionLine(
+                        SaoriRequestVersionLineError::NoCommand
+                    ))
+                );
+            }
+        }
+
+        mod decode_u8 {
+            use super::*;
+
+            use encoding_rs;
+
+            #[test]
+            fn success_when_valid_bytes() {
+                let case = "EXECUTE SAORI/1.0\r\nCharset: Shift_JIS\r\nArgument0: 一\r\n\r\n";
+                let case_string = format!("{}\0", case);
+
+                let (case_bytes, _encoding, _is_err) = encoding_rs::SHIFT_JIS.encode(&case_string);
+                assert_eq!(
+                    SaoriRequest::decode_u8(&case_bytes),
+                    Ok((case.to_string(), SaoriCharset::ShiftJIS))
+                );
+            }
+        }
+
+        mod parse_version_line {
+            use super::*;
+
+            #[test]
+            fn success_when_valid_command_version() {
+                let case = "GET Version SAORI/1.0\r\n\r\n\0";
+                assert_eq!(
+                    SaoriRequest::parse_version_line(case),
+                    Ok((SaoriVersion::V1_0, SaoriCommand::GetVersion))
+                );
+            }
+
+            #[test]
+            fn success_when_valid_command_execute() {
+                let case = "EXECUTE SAORI/1.0\r\nCharset: UTF-8\r\nArgument0: 零\r\n\r\n\0";
+                assert_eq!(
+                    SaoriRequest::parse_version_line(case),
+                    Ok((SaoriVersion::V1_0, SaoriCommand::Execute))
+                );
+            }
+
+            #[test]
+            fn failed_when_enmpty_request() {
+                let case = "";
+                assert_eq!(
+                    SaoriRequest::parse_version_line(case),
+                    Err(SaoriRequestVersionLineError::EmptyRequest)
+                );
+            }
+
+            #[test]
+            fn failed_when_no_command() {
+                let case = "SAORI/1.0\r\n\r\n\0";
+                assert_eq!(
+                    SaoriRequest::parse_version_line(case),
+                    Err(SaoriRequestVersionLineError::NoCommand)
+                );
+            }
+
+            #[test]
+            fn failed_when_no_version() {
+                let case = "GET Version \r\n\r\n\0";
+                assert_eq!(
+                    SaoriRequest::parse_version_line(case),
+                    Err(SaoriRequestVersionLineError::NoVersion)
+                );
+            }
+        }
+
+        mod parse_security_level {
+            use super::*;
+
+            #[test]
+            fn some_value_when_valid_security_line() {
+                let case = "SecurityLevel: Local";
+                assert_eq!(
+                    SaoriRequest::parse_security_level(case),
+                    Some(SaoriSecurityLevel::Local)
+                );
+
+                let case = "SecurityLevel: External";
+                assert_eq!(
+                    SaoriRequest::parse_security_level(case),
+                    Some(SaoriSecurityLevel::External),
+                );
+            }
+
+            #[test]
+            fn none_when_it_is_not_security_line() {
+                let case = "Argument0: test";
+                assert!(SaoriRequest::parse_security_level(case).is_none());
+            }
+        }
+
+        mod parse_argument {
+            use super::*;
+
+            #[test]
+            fn success_when_valid_argument_lines() {
+                let mut arguments = Vec::new();
+
+                let case = "Argument123: 一二三";
+                assert_eq!(SaoriRequest::parse_argument(case, &mut arguments), Ok(()));
+                assert_eq!(arguments.get(123), Some(&String::from("一二三")));
+
+                let case = "Argument124: 一二四";
+                assert_eq!(SaoriRequest::parse_argument(case, &mut arguments), Ok(()));
+                let case = "Argument1: 一";
+                assert_eq!(SaoriRequest::parse_argument(case, &mut arguments), Ok(()));
+
+                assert_eq!(arguments.get(124), Some(&String::from("一二四")));
+                assert_eq!(arguments.get(1), Some(&String::from("一")));
+                assert_eq!(arguments.get(123), Some(&String::from("一二三")));
+            }
+
+            #[test]
+            fn success_when_line_is_empty() {
+                let mut arguments = Vec::new();
+
+                let case = "";
+                assert_eq!(SaoriRequest::parse_argument(case, &mut arguments), Ok(()));
+            }
+
+            #[test]
+            fn failed_when_invalid_separator() {
+                let mut arguments = Vec::new();
+
+                let case = "Argument 123";
+                assert_eq!(
+                    SaoriRequest::parse_argument(case, &mut arguments),
+                    Err(SaoriRequestArgumentError::InvalidSeparator)
+                );
+            }
+
+            #[test]
+            fn failed_when_invalid_index() {
+                let mut arguments = Vec::new();
+
+                let case = "Argument: 123";
+                assert_eq!(
+                    SaoriRequest::parse_argument(case, &mut arguments),
+                    Err(SaoriRequestArgumentError::NoIndex)
+                );
+            }
+        }
+
+        mod parse_sender {
+            use super::*;
+
+            #[test]
+            fn some_value_when_valid_sender_line() {
+                let case = "Sender: materia";
+                assert_eq!(
+                    SaoriRequest::parse_sender(case),
+                    Some(String::from("materia"))
+                );
+            }
+
+            #[test]
+            fn none_when_it_is_not_sender_line() {
+                let case = "Argument0: 123";
+                assert!(SaoriRequest::parse_sender(case).is_none());
+            }
+        }
     }
 }

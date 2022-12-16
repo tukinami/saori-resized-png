@@ -120,7 +120,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn success_when_valid_wide_char_and_codepage_with_utf8() {
+        fn success_when_valid_wide_char_and_codepage_with_shift_jis() {
             let case = "あいうえお仕様";
             let mut case_chars: Vec<u16> = case.encode_utf16().collect();
 
