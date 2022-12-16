@@ -1,4 +1,4 @@
-use encoding_rs::*;
+use crate::chars::multi_byte_to_wide_char;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum SaoriVersion {
@@ -61,12 +61,12 @@ impl SaoriCharset {
         }
     }
 
-    pub fn to_encoding(&self) -> &'static Encoding {
+    pub fn codepage(&self) -> u32 {
         match self {
-            SaoriCharset::ShiftJIS => SHIFT_JIS,
-            SaoriCharset::EucJP => EUC_JP,
-            SaoriCharset::UTF8 => UTF_8,
-            SaoriCharset::ISO2022JP => ISO_2022_JP,
+            SaoriCharset::ShiftJIS => 932,
+            SaoriCharset::EucJP => 20932,
+            SaoriCharset::UTF8 => 65001,
+            SaoriCharset::ISO2022JP => 50222,
         }
     }
 }
@@ -201,14 +201,12 @@ impl SaoriRequest {
             }
         }
 
-        let encoding = charset.to_encoding();
+        let wide_chars = multi_byte_to_wide_char(from, charset.codepage())
+            .map_err(|_| SaoriRequestCharsetError::DecodeFailed)?;
 
-        let (body, _used_encoding, has_error) = encoding.decode(from);
-        if has_error {
-            return Err(SaoriRequestCharsetError::DecodeFailed);
-        } else {
-            return Ok((body.to_string(), charset));
-        }
+        let p = wide_chars.partition_point(|v| *v != 0);
+
+        Ok((String::from_utf16_lossy(&wide_chars[..p]), charset))
     }
 
     /// リクエスト中のバージョン・コマンドを処理する関数。

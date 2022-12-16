@@ -1,3 +1,4 @@
+mod chars;
 mod error;
 mod procedure;
 mod request;
@@ -94,19 +95,19 @@ pub extern "cdecl" fn request(h: HGLOBAL, len: *mut c_long) -> HGLOBAL {
 
     let response_bytes = response.to_encoded_bytes().unwrap_or(Vec::new());
 
-    let response = slice_u8_to_hglobal(len, &response_bytes);
+    let response = slice_i8_to_hglobal(len, &response_bytes);
 
     return response;
 }
 
-fn slice_u8_to_hglobal(h_len: *mut c_long, data: &[u8]) -> HGLOBAL {
+fn slice_i8_to_hglobal(h_len: *mut c_long, data: &[i8]) -> HGLOBAL {
     let data_len = data.len();
 
     let h = unsafe { GlobalAlloc(GMEM_FIXED, data_len) };
 
     unsafe { *h_len = data_len as c_long };
 
-    let h_slice = unsafe { slice::from_raw_parts_mut(h as *mut u8, data_len) };
+    let h_slice = unsafe { slice::from_raw_parts_mut(h as *mut i8, data_len) };
 
     for (index, value) in data.iter().enumerate() {
         h_slice[index] = *value;

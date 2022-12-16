@@ -1,4 +1,7 @@
-use crate::request::{SaoriCharset, SaoriRequest, SaoriVersion};
+use crate::{
+    chars::wide_char_to_multi_byte,
+    request::{SaoriCharset, SaoriRequest, SaoriVersion},
+};
 
 #[derive(PartialEq, Debug)]
 pub enum SaoriStatus {
@@ -113,17 +116,15 @@ impl SaoriResponse {
     }
 
     /// 自身をエンコードされた文字バイト列にして返す
-    pub fn to_encoded_bytes(&mut self) -> Result<Vec<u8>, SaoriResponseError> {
+    pub fn to_encoded_bytes(&mut self) -> Result<Vec<i8>, SaoriResponseError> {
         let req = self.to_string();
-        let encoding = self.charset.to_encoding();
 
-        let (body, _used_encoding, has_error) = encoding.encode(&req);
+        let mut wide_chars: Vec<u16> = req.encode_utf16().collect();
 
-        if has_error {
-            Err(SaoriResponseError::DecodeFailed)
-        } else {
-            return Ok(body.to_vec());
-        }
+        let result = wide_char_to_multi_byte(&mut wide_chars, self.charset.codepage())
+            .map_err(|_| SaoriResponseError::DecodeFailed)?;
+
+        Ok(result)
     }
 
     /// 自身を文字列にして返す

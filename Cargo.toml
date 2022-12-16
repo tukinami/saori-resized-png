@@ -14,11 +14,11 @@ image = "0.24.5"
 fast_image_resize = "2.4.0"
 
 [target.'cfg(windows)'.dependencies]
-winapi = {version = "0.3.9", features = ["winbase", "libloaderapi"]}
-encoding_rs = "0.8.31"
+winapi = {version = "0.3.9", features = ["winbase", "libloaderapi", "stringapiset"]}
 
 [dev-dependencies]
 tempfile = "3.3.0"
+encoding_rs = "0.8.31"
 
 [lib]
 name = "resizedpng"
