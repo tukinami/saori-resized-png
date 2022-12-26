@@ -1,0 +1,40 @@
+name: check-and-test
+on: 
+  push:
+    branches:
+    - main
+
+jobs:
+  check-and-test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Setup toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: i686-pc-windows-msvc
+          components: rustfmt, clippy
+      
+      - name: Check
+        uses: actions-rs/cargo@v1
+        with:
+            command: check
+      
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+            command: test
