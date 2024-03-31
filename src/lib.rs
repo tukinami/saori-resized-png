@@ -6,7 +6,7 @@ mod resized_png;
 mod response;
 
 use winapi::ctypes::c_long;
-use winapi::shared::minwindef::{BOOL, DWORD, HGLOBAL, HINSTANCE, LPVOID, MAX_PATH, TRUE};
+use winapi::shared::minwindef::{BOOL, DWORD, FALSE, HGLOBAL, HINSTANCE, LPVOID, MAX_PATH, TRUE};
 use winapi::um::libloaderapi::GetModuleFileNameW;
 use winapi::um::winbase::{GlobalAlloc, GlobalFree, GMEM_FIXED};
 use winapi::um::winnt::{
@@ -14,11 +14,12 @@ use winapi::um::winnt::{
 };
 
 use std::slice;
+use std::sync::OnceLock;
 
 use crate::request::{SaoriCommand, SaoriRequest};
 use crate::response::SaoriResponse;
 
-static mut DLL_PATH: String = String::new();
+static DLL_PATH: OnceLock<String> = OnceLock::new();
 
 #[no_mangle]
 pub extern "system" fn DllMain(
@@ -37,7 +38,7 @@ pub extern "system" fn DllMain(
         }
         _ => {}
     }
-    return TRUE;
+    TRUE
 }
 
 fn register_dll_path(h_module: HINSTANCE) {
@@ -48,28 +49,42 @@ fn register_dll_path(h_module: HINSTANCE) {
 
     let p = buf.partition_point(|v| *v != 0);
 
-    unsafe {
-        DLL_PATH = String::from_utf16_lossy(&buf[..p]);
+    let _ = DLL_PATH.set(String::from_utf16_lossy(&buf[..p]));
+}
+
+/// SAORI loadを処理する
+///
+/// # Safety
+/// この関数は`h`で指定された`HGLOBAL`ポインタを解放しています。
+#[no_mangle]
+pub unsafe extern "cdecl" fn load(h: HGLOBAL, _len: c_long) -> BOOL {
+    unsafe { GlobalFree(h) };
+
+    if let Some(path) = DLL_PATH.get() {
+        procedure::load(path);
+        TRUE
+    } else {
+        FALSE
     }
 }
 
-#[no_mangle]
-pub extern "cdecl" fn load(h: HGLOBAL, _len: c_long) -> BOOL {
-    unsafe { GlobalFree(h) };
-
-    unsafe { procedure::load(&DLL_PATH) };
-
-    return TRUE;
-}
-
+/// SAORI unloadを処理する
 #[no_mangle]
 pub extern "cdecl" fn unload() -> BOOL {
-    unsafe { procedure::unload(&DLL_PATH) };
-    return TRUE;
+    if let Some(path) = DLL_PATH.get() {
+        procedure::unload(path);
+        TRUE
+    } else {
+        FALSE
+    }
 }
 
+/// SAORI requestを処理する
+///
+/// # Safety
+/// この関数は`h`で指定された`HGLOBAL`ポインタを解放しています。
 #[no_mangle]
-pub extern "cdecl" fn request(h: HGLOBAL, len: *mut c_long) -> HGLOBAL {
+pub unsafe extern "cdecl" fn request(h: HGLOBAL, len: *mut c_long) -> HGLOBAL {
     // リクエストの取得
     let s = unsafe { hglobal_to_vec_u8(h, *len) };
     unsafe { GlobalFree(h) };
@@ -82,22 +97,24 @@ pub extern "cdecl" fn request(h: HGLOBAL, len: *mut c_long) -> HGLOBAL {
         Err(_e) => SaoriResponse::new_bad_request(),
     };
 
-    if let Ok(r) = request {
-        match r.command() {
+    match (DLL_PATH.get(), request) {
+        (None, _) => {
+            response.set_status(response::SaoriStatus::InternalServerError);
+        }
+        (Some(path), Ok(r)) => match r.command() {
             SaoriCommand::GetVersion => {
-                unsafe { procedure::get_version(&DLL_PATH, &r, &mut response) };
+                procedure::get_version(path, &r, &mut response);
             }
             SaoriCommand::Execute => {
-                unsafe { procedure::execute(&DLL_PATH, &r, &mut response) };
+                procedure::execute(path, &r, &mut response);
             }
-        }
+        },
+        _ => {}
     }
 
     let response_bytes = response.to_encoded_bytes().unwrap_or(Vec::new());
 
-    let response = slice_i8_to_hglobal(len, &response_bytes);
-
-    return response;
+    slice_i8_to_hglobal(len, &response_bytes)
 }
 
 fn slice_i8_to_hglobal(h_len: *mut c_long, data: &[i8]) -> HGLOBAL {
@@ -113,7 +130,7 @@ fn slice_i8_to_hglobal(h_len: *mut c_long, data: &[i8]) -> HGLOBAL {
         h_slice[index] = *value;
     }
 
-    return h;
+    h
 }
 
 fn hglobal_to_vec_u8(h: HGLOBAL, len: c_long) -> Vec<u8> {
@@ -126,5 +143,5 @@ fn hglobal_to_vec_u8(h: HGLOBAL, len: c_long) -> Vec<u8> {
     }
     s[len as usize] = b'\0';
 
-    return s;
+    s
 }

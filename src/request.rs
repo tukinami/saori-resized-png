@@ -233,21 +233,21 @@ impl SaoriRequest {
             return Err(SaoriRequestVersionLineError::NoCommand);
         };
 
-        return Ok((version, command));
+        Ok((version, command))
     }
 
     /// リクエスト中のSecurityLevelを処理する関数。
     fn parse_security_level(line: &str) -> Option<SaoriSecurityLevel> {
         if line.starts_with("SecurityLevel: ") {
             if line.ends_with(SaoriSecurityLevel::Local.to_str()) {
-                return Some(SaoriSecurityLevel::Local);
+                Some(SaoriSecurityLevel::Local)
             } else if line.ends_with(SaoriSecurityLevel::External.to_str()) {
-                return Some(SaoriSecurityLevel::External);
+                Some(SaoriSecurityLevel::External)
             } else {
-                return None;
+                None
             }
         } else {
-            return None;
+            None
         }
     }
 
@@ -286,9 +286,9 @@ impl SaoriRequest {
     fn parse_sender(line: &str) -> Option<String> {
         if line.starts_with("Sender: ") {
             let body = line.replace("Sender: ", "");
-            return Some(body);
+            Some(body)
         } else {
-            return None;
+            None
         }
     }
 }

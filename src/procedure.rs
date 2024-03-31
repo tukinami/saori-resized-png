@@ -24,7 +24,7 @@ pub fn execute(path: &str, request: &SaoriRequest, response: &mut SaoriResponse)
         path.pop();
     }
 
-    if let Some(func) = args.get(0) {
+    if let Some(func) = args.first() {
         match func.as_str() {
             "GetImageType" => {
                 if let Some(input_path_str) = args.get(1) {
@@ -43,8 +43,12 @@ pub fn execute(path: &str, request: &SaoriRequest, response: &mut SaoriResponse)
                     Some(height_str),
                 ) = (args.get(1), args.get(2), args.get(3), args.get(4))
                 {
-                    let Ok(width_command) = width_str.parse::<i64>() else { return };
-                    let Ok(height_command) = height_str.parse::<i64>() else { return };
+                    let Ok(width_command) = width_str.parse::<i64>() else {
+                        return;
+                    };
+                    let Ok(height_command) = height_str.parse::<i64>() else {
+                        return;
+                    };
 
                     let input_path = path.clone().join(input_path_str);
                     let output_path = path.join(output_path_str);

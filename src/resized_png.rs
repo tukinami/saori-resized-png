@@ -103,11 +103,11 @@ fn output_size(
 
     // command が0の場合は元のサイズが指定されているとして扱う。
     let width_origin = match width_command {
-        w if w == 0 => input_width.get() as i64,
+        0 => input_width.get() as i64,
         w => w,
     };
     let height_origin = match height_command {
-        h if h == 0 => input_height.get() as i64,
+        0 => input_height.get() as i64,
         h => h,
     };
 

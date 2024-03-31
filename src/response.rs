@@ -104,7 +104,7 @@ impl SaoriResponse {
     /// statusの切替を行う(Ok <=> No Content)
     fn on_change_result_and_value(&mut self) {
         match self.status {
-            SaoriStatus::BadRequest | SaoriStatus::InternalServerError => return,
+            SaoriStatus::BadRequest | SaoriStatus::InternalServerError => (),
             _ => {
                 if !self.result.is_empty() || !self.value.is_empty() {
                     self.status = SaoriStatus::OK;
@@ -116,7 +116,7 @@ impl SaoriResponse {
     }
 
     /// 自身をエンコードされた文字バイト列にして返す
-    pub fn to_encoded_bytes(&mut self) -> Result<Vec<i8>, SaoriResponseError> {
+    pub fn to_encoded_bytes(&self) -> Result<Vec<i8>, SaoriResponseError> {
         let req = self.to_string();
 
         let mut wide_chars: Vec<u16> = req.encode_utf16().collect();
@@ -138,20 +138,18 @@ impl SaoriResponse {
             self.status.to_str(),
             self.charset.to_str()
         ));
-        match self.status {
-            SaoriStatus::OK => {
-                if !self.result.is_empty() {
-                    result.push_str(&format!("Result: {}\r\n", self.result));
-                }
-
-                for (index, value) in self.value.iter().enumerate() {
-                    result.push_str(&format!("Value{}: {}\r\n", index, value));
-                }
+        if self.status == SaoriStatus::OK {
+            if !self.result.is_empty() {
+                result.push_str(&format!("Result: {}\r\n", self.result));
             }
-            _ => {}
+
+            for (index, value) in self.value.iter().enumerate() {
+                result.push_str(&format!("Value{}: {}\r\n", index, value));
+            }
         }
+
         result.push_str("\r\n\0");
 
-        return result;
+        result
     }
 }
