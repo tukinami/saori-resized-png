@@ -42,7 +42,7 @@ jobs:
           copy LICENSE artifact/saori-resized-png/LICENSE
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: saori-resized-png
           path: artifact/

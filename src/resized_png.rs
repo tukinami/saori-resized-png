@@ -1,7 +1,11 @@
 use std::{num::NonZeroU32, path::PathBuf};
 
-use fast_image_resize as fir;
-use image::io::Reader as ImageReader;
+// use fast_image_resize::{self as fir, IntoImageView, ResizeOptions};
+// use image::ImageReader;
+
+use image::ImageReader;
+
+use fast_image_resize::{images::Image, PixelType, ResizeOptions, Resizer};
 
 use crate::error::ResizedPngError;
 
@@ -38,51 +42,45 @@ pub(crate) fn to_resized_png(
     width_command: i64,
     height_command: i64,
 ) -> Result<(), ResizedPngError> {
-    let reader = ImageReader::open(src_path).and_then(|v| v.with_guessed_format())?;
-    let input_img = reader.decode()?;
-
-    let pixel_type = fir::PixelType::U8x4;
-
-    let (input_width, input_height) = NonZeroU32::new(input_img.width())
-        .zip(NonZeroU32::new(input_img.height()))
-        .ok_or(ResizedPngError::InputSizeError)?;
-
-    let mut input_image = fir::Image::from_vec_u8(
-        input_width,
-        input_height,
-        input_img.to_rgba8().into_raw(),
-        pixel_type,
-    )?;
-
-    let alpha_mul_div = fir::MulDiv::default();
-    alpha_mul_div
-        .divide_alpha_inplace(&mut input_image.view_mut())
-        .expect("limited target pixel type.");
+    let input_src = ImageReader::open(src_path)
+        .and_then(|v| v.with_guessed_format())?
+        .decode()?;
 
     // サイズが計算できないときは、何もせず終了。
-    let (output_width, output_height) =
-        match output_size(width_command, height_command, input_width, input_height) {
-            Some(v) => v,
-            None => return Ok(()),
-        };
+    let (output_width, output_height) = match output_size(
+        width_command,
+        height_command,
+        input_src.width(),
+        input_src.height(),
+    ) {
+        Some(v) => v,
+        None => return Ok(()),
+    };
 
-    let mut output_image = fir::Image::new(output_width, output_height, input_image.pixel_type());
-    let mut output_view = output_image.view_mut();
+    let input_image = Image::from_vec_u8(
+        input_src.width(),
+        input_src.height(),
+        input_src.into_rgba8().into_vec(),
+        PixelType::U8x4,
+    )
+    .map_err(|_| ResizedPngError::Unsupported)?;
 
-    let mut resizer = fir::Resizer::new(fir::ResizeAlg::Convolution(fir::FilterType::Lanczos3));
+    let mut output_image = Image::new(output_width.into(), output_height.into(), PixelType::U8x4);
+
+    let mut resizer = Resizer::new();
     resizer
-        .resize(&input_image.view(), &mut output_view)
-        .expect("pixel type is same");
-
-    alpha_mul_div
-        .divide_alpha_inplace(&mut output_view)
-        .expect("limited target pixel type.");
+        .resize(
+            &input_image,
+            &mut output_image,
+            Some(&ResizeOptions::default()),
+        )
+        .map_err(|_| ResizedPngError::Unsupported)?;
 
     image::save_buffer_with_format(
         dist_path,
         output_image.buffer(),
-        output_image.width().get(),
-        output_image.height().get(),
+        output_image.width(),
+        output_image.height(),
         image::ColorType::Rgba8,
         image::ImageFormat::Png,
     )?;
@@ -93,8 +91,8 @@ pub(crate) fn to_resized_png(
 fn output_size(
     width_command: i64,
     height_command: i64,
-    input_width: NonZeroU32,
-    input_height: NonZeroU32,
+    input_width: u32,
+    input_height: u32,
 ) -> Option<(NonZeroU32, NonZeroU32)> {
     // 両方とも0未満ならサイズなし。
     if width_command < 0 && height_command < 0 {
@@ -103,28 +101,28 @@ fn output_size(
 
     // command が0の場合は元のサイズが指定されているとして扱う。
     let width_origin = match width_command {
-        0 => input_width.get() as i64,
+        0 => input_width as i64,
         w => w,
     };
     let height_origin = match height_command {
-        0 => input_height.get() as i64,
+        0 => input_height as i64,
         h => h,
     };
 
     // originが0未満の場合はもう片方の拡大率に従う。
     let width_temp = match width_origin {
         w if w < 0 => {
-            let ratio = height_origin as f64 / input_height.get() as f64;
+            let ratio = height_origin as f64 / input_height as f64;
 
-            (input_width.get() as f64 * ratio) as u32
+            (input_width as f64 * ratio) as u32
         }
         w => w as u32,
     };
     let height_temp = match height_origin {
         h if h < 0 => {
-            let ratio = width_origin as f64 / input_width.get() as f64;
+            let ratio = width_origin as f64 / input_width as f64;
 
-            (input_height.get() as f64 * ratio) as u32
+            (input_height as f64 * ratio) as u32
         }
         h => h as u32,
     };
@@ -247,8 +245,8 @@ mod tests {
         fn none_when_both_width_and_height_are_minus() {
             let width_command = -1;
             let height_command = -1;
-            let input_width = NonZeroU32::new(100).unwrap();
-            let input_height = NonZeroU32::new(200).unwrap();
+            let input_width = 100;
+            let input_height = 200;
 
             assert!(
                 output_size(width_command, height_command, input_width, input_height).is_none()
@@ -259,22 +257,22 @@ mod tests {
         fn original_value_when_width_and_height_are_0() {
             let width_command = 0;
             let height_command = 0;
-            let input_width = NonZeroU32::new(100).unwrap();
-            let input_height = NonZeroU32::new(200).unwrap();
+            let input_width = 100;
+            let input_height = 200;
 
             let (width, height) =
                 output_size(width_command, height_command, input_width, input_height).unwrap();
 
-            assert_eq!(width, input_width);
-            assert_eq!(height, input_height);
+            assert_eq!(width, NonZeroU32::new(input_width).unwrap());
+            assert_eq!(height, NonZeroU32::new(input_height).unwrap());
         }
 
         #[test]
         fn keep_aspect_ratio_when_one_of_width_and_height_is_minus() {
             let width_command = -1;
             let height_command = 100;
-            let input_width = NonZeroU32::new(100).unwrap();
-            let input_height = NonZeroU32::new(200).unwrap();
+            let input_width = 100;
+            let input_height = 200;
 
             let (width, height) =
                 output_size(width_command, height_command, input_width, input_height).unwrap();
@@ -287,8 +285,8 @@ mod tests {
         fn target_values_when_width_and_henght_are_not_0_and_minis() {
             let width_command = 200;
             let height_command = 300;
-            let input_width = NonZeroU32::new(100).unwrap();
-            let input_height = NonZeroU32::new(200).unwrap();
+            let input_width = 100;
+            let input_height = 200;
 
             let (width, height) =
                 output_size(width_command, height_command, input_width, input_height).unwrap();
